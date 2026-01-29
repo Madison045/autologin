@@ -1,122 +1,34 @@
 name: Build Windows EXE
 
 on:
-  # Запуск при push в main ветку
   push:
-    branches: [ main ]
-  
-  # Запуск при создании релиза
-  release:
-    types: [created]
-  
-  # Ручной запуск из интерфейса GitHub
+    branches: [main]
   workflow_dispatch:
 
-# Разрешения для создания релиза
-permissions:
-  contents: write
-
 jobs:
-  build-windows-exe:
-    name: Build for Windows
-    runs-on: windows-latest  # Используем Windows для сборки
+  build:
+    runs-on: windows-latest
     
     steps:
-    # 1. Получаем код
-    - name: Checkout repository
+    - name: Checkout code
       uses: actions/checkout@v3
       
-    # 2. Устанавливаем Python
-    - name: Set up Python 3.10
+    - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
-        
-    # 3. Устанавливаем Chrome (опционально, для тестов)
-    - name: Install Chrome
-      run: |
-        choco install googlechrome -y
-        
-    # 4. Устанавливаем зависимости
+        python-version: '3.9'
+    
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install selenium webdriver-manager pyinstaller
-        
-    # 5. Собираем EXE
-    - name: Build EXE with PyInstaller
+    
+    - name: Build EXE file
       run: |
-        pyinstaller --onefile `
-                    --windowed `
-                    --name=AutoLogin `
-                    --clean `
-                    autologin.py
-        
-        # Проверяем размер
-        echo "Размер EXE файла:"
-        Get-Item "dist\AutoLogin.exe" | Select-Object Length
-        
-    # 6. Создаем ZIP архив с программой
-    - name: Create distribution package
-      run: |
-        # Создаем папку для дистрибутива
-        New-Item -ItemType Directory -Force -Path "dist_package"
-        
-        # Копируем EXE
-        Copy-Item "dist\AutoLogin.exe" -Destination "dist_package\"
-        
-        # Создаем README для пользователя
-        @"
-# AutoLogin v2.1
-
-## Установка
-1. Убедитесь, что Google Chrome установлен
-2. Запустите AutoLogin.exe
-3. При первом запуске введите логин и пароль
-4. Данные сохранятся в файле autologin_config.json
-
-## Системные требования
-- Windows 10/11
-- Google Chrome последней версии
-- Доступ в интернет
-
-## Примечания
-- Антивирус может блокировать программу
-- Добавьте папку с программой в исключения антивируса
-- При проблемах запустите от имени администратора
-"@ | Out-File -FilePath "dist_package\README.txt" -Encoding UTF8
-        
-        # Создаем BAT файл для удобного запуска
-        @"
-@echo off
-echo AutoLogin v2.1
-echo ===============
-echo.
-echo Запуск программы...
-AutoLogin.exe
-pause
-"@ | Out-File -FilePath "dist_package\Run_AutoLogin.bat" -Encoding ASCII
-        
-        # Архивируем
-        Compress-Archive -Path "dist_package\*" -DestinationPath "AutoLogin_Windows.zip"
-        
-    # 7. Загружаем артефакты для скачивания
-    - name: Upload EXE as artifact
+        pyinstaller --onefile --windowed --name=AutoLogin autologin.py
+    
+    - name: Upload EXE
       uses: actions/upload-artifact@v3
       with:
-        name: AutoLogin-Windows
-        path: |
-          dist/AutoLogin.exe
-          AutoLogin_Windows.zip
-        retention-days: 30
-        
-    # 8. Автоматически создаем релиз при теге v*
-    - name: Create Release on Tag
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          dist/AutoLogin.exe
-          AutoLogin_Windows.zip
-        generate_release_notes: true
-        prerelease: false
+        name: AutoLogin
+        path: dist/AutoLogin.exe
